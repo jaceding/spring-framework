@@ -2,7 +2,6 @@ package per.jaceding;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.stereotype.Component;
 
 /**
  * @author jaceding
@@ -15,9 +14,5 @@ public class Application {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(Application.class);
 		UserComponent userComponent = context.getBean(UserComponent.class);
 		System.out.println(userComponent.getClass());
-	}
-
-	@Component
-	public static class UserComponent {
 	}
 }
