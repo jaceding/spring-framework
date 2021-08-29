@@ -13,7 +13,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 public class ClassPathXmlApplicationContextTests {
 
 	@Test
-	public void testFooService() {
+	public void test1() {
 		ApplicationContext context = new ClassPathXmlApplicationContext("classPathXmlApplicationContextTests.xml");
 		UserComponent userComponent = context.getBean("userComponent", UserComponent.class);
 		System.out.println(userComponent.getClass().getName());
