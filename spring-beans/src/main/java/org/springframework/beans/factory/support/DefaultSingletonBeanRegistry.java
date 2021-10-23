@@ -73,7 +73,6 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	/** Maximum number of suppressed exceptions to preserve. */
 	private static final int SUPPRESSED_EXCEPTIONS_LIMIT = 100;
 
-
 	/** Cache of singleton objects: bean name to bean instance. */
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
@@ -165,34 +164,49 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	@Override
 	@Nullable
 	public Object getSingleton(String beanName) {
+		// 第二个参数为是否允许立即加载,这里传入的是true
 		return getSingleton(beanName, true);
 	}
 
 	/**
-	 * Return the (raw) singleton object registered under the given name.
-	 * <p>Checks already instantiated singletons and also allows for an early
-	 * reference to a currently created singleton (resolving a circular reference).
-	 * @param beanName the name of the bean to look for
-	 * @param allowEarlyReference whether early references should be created or not
-	 * @return the registered singleton object, or {@code null} if none found
+	 * 通过 beanName 返回原始的单例对象
+	 *
+	 * Spring 的三级缓存：
+	 * 1.singletonObjects：一级缓存。单例对象的缓存池，存储完整的 Bean。
+	 * 2.earlySingletonObjects：二级缓存。存放提前暴露的 Bean，未完成属性注入和执行 init 方法。
+	 * 3.singletonFactories：三级缓存。存放的是生产 Bean 的工厂，这里是为了实现 AOP 代理。
+	 *
+	 * Spring 默认支持循环依赖：
+	 * 1.尝试从一级缓存中查找完整的Bean实例，找到则直接返回。
+	 * 2.如果无法从一级缓存中查找，对一级缓存进行上锁，然后尝试从二级缓存中查找半成品的Bean.找到直接返回。
+	 * 3.从三级缓存中查找,找到则放入二级缓存，同时为了保证一个对象实例为单例，将该实例从第三级缓存中进行移除。
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
-		// Quick check for existing instance without full singleton lock
+		// 尝试从一级缓存中获取完整的 Bean
 		Object singletonObject = this.singletonObjects.get(beanName);
+		// 创建中的 Bean 的名字会被保存在 singletonsCurrentlyInCreation 中
+		// 如果当前所需要获取的bean是否是singleton的，并且处于创建中的形态
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			// Double check lock：对缓存对象进行操作
 			singletonObject = this.earlySingletonObjects.get(beanName);
 			if (singletonObject == null && allowEarlyReference) {
 				synchronized (this.singletonObjects) {
-					// Consistent creation of early reference within full singleton lock
+					// 尝试从一级缓存中获取完整的 Bean
 					singletonObject = this.singletonObjects.get(beanName);
 					if (singletonObject == null) {
+						// 尝试从二级缓存中获取提前暴露的 Bean
 						singletonObject = this.earlySingletonObjects.get(beanName);
 						if (singletonObject == null) {
+							// 尝试从三级缓存中获取创建此 Bean 的单例工厂实例
+							// ObjectFactory 为用户定制(容器中的代理Bean),FactoryBean框架会进行特殊处理(自定义)
 							ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 							if (singletonFactory != null) {
+								// 调用单例工厂的getObject方法获取对象实例
 								singletonObject = singletonFactory.getObject();
+								// 将实例放入二级缓存中
 								this.earlySingletonObjects.put(beanName, singletonObject);
+								// 从三级缓存中删除
 								this.singletonFactories.remove(beanName);
 							}
 						}
